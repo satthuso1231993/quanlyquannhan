@@ -1,8 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Card, Table, Tag, Button, Modal, Form, Input, Select, Space, App as AntdApp, Row, Col, Divider, Typography } from 'antd';
 import { Shield, UserPlus, Trash2, Settings, Lock, Key, Users, Database, Copy } from 'lucide-react';
-import { collection, onSnapshot, doc, updateDoc, deleteDoc } from 'firebase/firestore';
-import { db, handleFirestoreError, OperationType } from '../lib/firebase';
+import { collection, onSnapshot, doc, updateDoc, deleteDoc, db, handleFirestoreError, OperationType } from '../lib/localDb';
 import { AppUser, UserRole } from '../types/military';
 import { useAuth } from '../context/AuthContext';
 
@@ -14,7 +13,6 @@ export const SettingsView: React.FC = () => {
   const { appUser, isAdmin, changePassword } = useAuth();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isPasswordModalOpen, setIsPasswordModalOpen] = useState(false);
-  const [isSqlModalOpen, setIsSqlModalOpen] = useState(false);
   const [editingUser, setEditingUser] = useState<AppUser | null>(null);
   const [form] = Form.useForm();
   const [passwordForm] = Form.useForm();
@@ -60,42 +58,6 @@ export const SettingsView: React.FC = () => {
     } catch (error: any) {
       message.error(error.message || 'Lỗi khi đổi mật khẩu');
     }
-  };
-
-  const supabaseSql = `-- Copy và dán mã SQL này vào mục SQL Editor trong Supabase
-CREATE TABLE IF NOT EXISTS personnel (
-  "id" TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
-  "fullName" TEXT,
-  "birthDate" TEXT,
-  "gender" TEXT,
-  "identityCard" TEXT,
-  "idIssueDate" TEXT,
-  "idIssuePlace" TEXT,
-  "ethnicity" TEXT,
-  "religion" TEXT,
-  "maritalStatus" TEXT,
-  "phone" TEXT,
-  "email" TEXT,
-  "occupation" TEXT,
-  "militaryCode" TEXT,
-  "type" TEXT,
-  "address" JSONB,
-  "militaryInfo" JSONB,
-  "education" JSONB,
-  "health" JSONB,
-  "createdAt" TEXT,
-  "updatedAt" TEXT,
-  "createdBy" TEXT
-);
-
--- Bật RLS và thêm Policy để ứng dụng có quyền truy cập
-ALTER TABLE personnel ENABLE ROW LEVEL SECURITY;
-CREATE POLICY "Cho phép truy cập toàn bộ từ frontend" ON personnel FOR ALL USING (true) WITH CHECK (true);
-`;
-
-  const copySql = () => {
-    navigator.clipboard.writeText(supabaseSql);
-    message.success('Đã copy mã SQL!');
   };
 
   const columns = [
@@ -189,7 +151,7 @@ CREATE POLICY "Cho phép truy cập toàn bộ từ frontend" ON personnel FOR A
           </div>
         </div>
         {isAdmin && (
-          <Button type="primary" className="bg-military-green flex items-center gap-2" icon={<UserPlus size={18} />} onClick={() => message.info('Tính năng đang được phát triển. Hiện tại người dùng cần đăng nhập Google lần đầu để tạo tài khoản.')}>
+          <Button type="primary" className="bg-military-green flex items-center gap-2" icon={<UserPlus size={18} />} onClick={() => message.info('Vui lòng hướng dẫn cán bộ tự đăng ký tài khoản ở màn hình Đăng ký, sau đó bạn sẽ cấp quyền cho họ tại đây.')}>
             Thêm cán bộ
           </Button>
         )}
@@ -246,54 +208,10 @@ CREATE POLICY "Cho phép truy cập toàn bộ từ frontend" ON personnel FOR A
                   Hoạt động bình thường
                 </div>
               </div>
-              <div className="p-4 bg-gray-50 rounded-lg mt-4">
-                <div className="text-xs text-gray-500 uppercase font-bold mb-1">Cơ sở dữ liệu Supabase</div>
-                <div className="flex items-center gap-2 text-indigo-600 font-medium">
-                  <Database size={16} />
-                  Chế độ lưu trữ liên kết
-                </div>
-                <Button 
-                  size="small" 
-                  className="mt-3 w-full" 
-                  onClick={() => setIsSqlModalOpen(true)}
-                >
-                  Sao chép SQL Khởi tạo bảng
-                </Button>
-              </div>
             </div>
           </Card>
         </Col>
       </div>
-
-      <Modal
-        title={
-          <div className="flex items-center gap-2 text-indigo-700">
-            <Database size={20} />
-            <span>Hướng dẫn khởi tạo bảng Supabase</span>
-          </div>
-        }
-        open={isSqlModalOpen}
-        onCancel={() => setIsSqlModalOpen(false)}
-        footer={[
-          <Button key="copy" type="primary" className="bg-indigo-600" icon={<Copy size={16} />} onClick={copySql}>
-            Copy SQL
-          </Button>,
-          <Button key="close" onClick={() => setIsSqlModalOpen(false)}>
-            Đóng
-          </Button>
-        ]}
-        width={700}
-      >
-        <div className="space-y-4 pt-4">
-          <div className="bg-indigo-50 border border-indigo-100 p-3 rounded-lg text-sm text-indigo-800">
-            Ứng dụng frontend không có quyền tự động tạo bảng (CREATE TABLE) trên Supabase vì lý do bảo mật. 
-            Vui lòng đăng nhập vào tài khoản Supabase của bạn, vào mục <strong>SQL Editor</strong>, dán và chạy đoạn mã dưới đây để khởi tạo bảng.
-          </div>
-          <div className="bg-gray-900 rounded-lg p-4 overflow-x-auto">
-            <pre className="text-green-400 text-xs font-mono whitespace-pre-wrap">{supabaseSql}</pre>
-          </div>
-        </div>
-      </Modal>
 
       <Modal
         title="Cấu hình tài khoản"

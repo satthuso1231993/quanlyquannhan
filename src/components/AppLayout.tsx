@@ -14,7 +14,8 @@ import {
   Moon,
   Sun,
   ShieldCheck,
-  ClipboardList
+  ClipboardList,
+  UserPlus
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { motion, AnimatePresence } from 'motion/react';
@@ -33,6 +34,11 @@ export const AppLayout: React.FC<{ children: React.ReactNode, onMenuSelect?: (ke
       key: 'dashboard',
       icon: <BarChart3 size={18} />,
       label: 'Tổng quan',
+    },
+    {
+      key: 'entry',
+      icon: <UserPlus size={18} />,
+      label: 'Nhập thông tin',
     },
     {
       key: 'personnel',

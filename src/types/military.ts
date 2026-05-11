@@ -6,7 +6,7 @@ export interface Address {
   permanentResidence: string;
   currentResidence: string;
   ward: string;
-  district: string;
+  hamlet?: string;
   province: string;
 }
 
@@ -75,6 +75,7 @@ export interface PersonnelProfile {
   phone: string;
   email: string;
   occupation: string;
+  notes?: string;
   militaryCode: string;
   type: PersonnelType;
   address: Address;

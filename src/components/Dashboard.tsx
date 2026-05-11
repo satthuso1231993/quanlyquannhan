@@ -24,8 +24,7 @@ import {
   Pie,
   Cell
 } from 'recharts';
-import { collection, onSnapshot, query, orderBy, limit } from 'firebase/firestore';
-import { db } from '../lib/firebase';
+import { collection, onSnapshot, query, orderBy, limit, db } from '../lib/localDb';
 import { PersonnelProfile } from '../types/military';
 
 const COLORS = ['#2c3e2d', '#c5a059', '#1a1a1a', '#8884d8'];
@@ -43,22 +42,35 @@ export const Dashboard: React.FC = () => {
   }, []);
 
   const stats = [
-    { title: 'Quân nhân', count: personnel.filter(p => p.type === 'QUAN_NHAN').length.toLocaleString(), icon: <Users className="text-blue-500" />, trend: '+0%' },
-    { title: 'Sĩ quan dự bị', count: personnel.filter(p => p.type === 'SI_QUAN_DU_BI').length.toLocaleString(), icon: <UserPlus className="text-green-500" />, trend: '+0%' },
-    { title: 'Công dân NVQS', count: personnel.filter(p => p.type === 'CONG_DAN_NVQS').length.toLocaleString(), icon: <Activity className="text-orange-500" />, trend: '0%' },
-    { title: 'Tổng hồ sơ', count: personnel.length.toLocaleString(), icon: <Award className="text-yellow-500" />, trend: '+0%' },
+    { title: 'Quân nhân', count: personnel.filter(p => p.type === 'QUAN_NHAN').length.toLocaleString(), icon: <Users className="text-blue-500" /> },
+    { title: 'Sĩ quan dự bị', count: personnel.filter(p => p.type === 'SI_QUAN_DU_BI').length.toLocaleString(), icon: <UserPlus className="text-green-500" /> },
+    { title: 'Công dân NVQS', count: personnel.filter(p => p.type === 'CONG_DAN_NVQS').length.toLocaleString(), icon: <Activity className="text-orange-500" /> },
+    { title: 'Tổng hồ sơ', count: personnel.length.toLocaleString(), icon: <Award className="text-yellow-500" /> },
   ];
 
   const recentData = personnel
     .sort((a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime())
     .slice(0, 5);
 
-  const localData = [
-    { name: 'Xã A', qty: personnel.filter(p => p.birthPlace?.includes('Xã A')).length || 10 },
-    { name: 'Xã B', qty: personnel.filter(p => p.birthPlace?.includes('Xã B')).length || 15 },
-    { name: 'Xã C', qty: personnel.filter(p => p.birthPlace?.includes('Xã C')).length || 5 },
-    { name: 'Khác', qty: 20 },
-  ];
+  const wardGroups = personnel.reduce((acc, p) => {
+    const ward = p.address?.ward || 'Chưa rõ';
+    acc[ward] = (acc[ward] || 0) + 1;
+    return acc;
+  }, {} as Record<string, number>);
+  
+  const localData = Object.keys(wardGroups).map(name => ({
+    name, qty: wardGroups[name]
+  }));
+
+  const totalProfiles = personnel.length;
+  const health1 = personnel.filter(p => p.health?.category === 'Loại 1').length;
+  const health2 = personnel.filter(p => p.health?.category === 'Loại 2').length;
+  const health3 = personnel.filter(p => p.health?.category === 'Loại 3').length;
+  const noHealthInfo = personnel.filter(p => !p.health?.category).length;
+
+  const p1 = totalProfiles ? Math.round((health1 / totalProfiles) * 100) : 0;
+  const p2 = totalProfiles ? Math.round((health2 / totalProfiles) * 100) : 0;
+  const p3 = totalProfiles ? Math.round((health3 / totalProfiles) * 100) : 0;
 
   return (
     <div className="space-y-6">
@@ -82,10 +94,6 @@ export const Dashboard: React.FC = () => {
               <div className="flex items-center justify-between">
                 <div className="p-3 bg-gray-50 dark:bg-gray-800 rounded-xl">
                   {stat.icon}
-                </div>
-                <div className={`text-xs font-medium ${stat.trend.startsWith('+') ? 'text-green-500' : 'text-red-500'} flex items-center gap-1`}>
-                  <TrendingUp size={12} />
-                  {stat.trend}
                 </div>
               </div>
               <div className="mt-4">
@@ -133,31 +141,33 @@ export const Dashboard: React.FC = () => {
               <div>
                 <div className="flex justify-between mb-2">
                   <span className="text-sm font-medium">Loại 1 (Rất tốt)</span>
-                  <span className="text-sm text-gray-500">65%</span>
+                  <span className="text-sm text-gray-500">{p1}% {totalProfiles > 0 && `(${health1})`}</span>
                 </div>
-                <Progress percent={65} strokeColor="#2c3e2d" showInfo={false} />
+                <Progress percent={p1} strokeColor="#2c3e2d" showInfo={false} />
               </div>
               <div>
                 <div className="flex justify-between mb-2">
                   <span className="text-sm font-medium">Loại 2 (Tốt)</span>
-                  <span className="text-sm text-gray-500">25%</span>
+                  <span className="text-sm text-gray-500">{p2}% {totalProfiles > 0 && `(${health2})`}</span>
                 </div>
-                <Progress percent={25} strokeColor="#c5a059" showInfo={false} />
+                <Progress percent={p2} strokeColor="#c5a059" showInfo={false} />
               </div>
               <div>
                 <div className="flex justify-between mb-2">
                   <span className="text-sm font-medium">Loại 3 (Trung bình)</span>
-                  <span className="text-sm text-gray-500">8%</span>
+                  <span className="text-sm text-gray-500">{p3}% {totalProfiles > 0 && `(${health3})`}</span>
                 </div>
-                <Progress percent={8} strokeColor="#1a1a1a" showInfo={false} />
+                <Progress percent={p3} strokeColor="#1a1a1a" showInfo={false} />
               </div>
-              <div className="p-4 bg-red-50 dark:bg-red-900/10 rounded-xl flex items-center gap-3">
-                <ShieldAlert className="text-red-500" />
-                <div>
-                  <p className="text-xs font-bold text-red-600">Lưu ý khám tuyển</p>
-                  <p className="text-[10px] text-red-500">Còn 42 công dân chưa cập nhật kết quả khám sức khỏe.</p>
+              {noHealthInfo > 0 && (
+                <div className="p-4 bg-red-50 dark:bg-red-900/10 rounded-xl flex items-center gap-3">
+                  <ShieldAlert className="text-red-500" />
+                  <div>
+                    <p className="text-xs font-bold text-red-600">Lưu ý khám tuyển</p>
+                    <p className="text-[10px] text-red-500">Còn {noHealthInfo} công dân chưa cập nhật kết quả khám sức khỏe.</p>
+                  </div>
                 </div>
-              </div>
+              )}
             </div>
           </Card>
         </Col>

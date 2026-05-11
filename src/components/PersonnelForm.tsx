@@ -10,7 +10,6 @@ import {
   Divider, 
   Button, 
   App as AntdApp, 
-  Steps,
   Card
 } from 'antd';
 import { 
@@ -20,14 +19,10 @@ import {
   GraduationCap, 
   Activity, 
   Users as UsersIcon,
-  CheckCircle2,
-  ChevronRight,
-  ChevronLeft
+  CheckCircle2
 } from 'lucide-react';
-import { collection, addDoc, doc, updateDoc } from 'firebase/firestore';
-import { db, handleFirestoreError, OperationType } from '../lib/firebase';
 import { PersonnelService } from '../services/PersonnelService';
-import { PersonnelProfile, PersonnelType } from '../types/military';
+import { PersonnelProfile } from '../types/military';
 import { useAuth } from '../context/AuthContext';
 import dayjs from 'dayjs';
 
@@ -38,11 +33,11 @@ interface Props {
 }
 
 export const PersonnelForm: React.FC<Props> = ({ initialData, onSuccess, onCancel }) => {
-  const [current, setCurrent] = useState(0);
   const [form] = Form.useForm();
   const { appUser } = useAuth();
   const [loading, setLoading] = useState(false);
   const { message } = AntdApp.useApp();
+  const selectedType = Form.useWatch('type', form);
 
   useEffect(() => {
     if (initialData) {
@@ -55,15 +50,6 @@ export const PersonnelForm: React.FC<Props> = ({ initialData, onSuccess, onCance
       form.resetFields();
     }
   }, [initialData, form]);
-
-  const steps = [
-    { title: 'Cá nhân', icon: <User size={18} /> },
-    { title: 'Địa chỉ', icon: <MapPin size={18} /> },
-    { title: 'Gia đình', icon: <UsersIcon size={18} /> },
-    { title: 'Học vấn', icon: <GraduationCap size={18} /> },
-    { title: 'Quân sự', icon: <Shield size={18} /> },
-    { title: 'Sức khỏe', icon: <Activity size={18} /> },
-  ];
 
   const onFinish = async (values: any) => {
     setLoading(true);
@@ -96,28 +82,18 @@ export const PersonnelForm: React.FC<Props> = ({ initialData, onSuccess, onCance
     }
   };
 
-  const next = async () => {
-    try {
-      await form.validateFields();
-      setCurrent(current + 1);
-    } catch (error) {
-      message.error('Vui lòng hoàn thành các trường bắt buộc');
-    }
-  };
-
-  const prev = () => setCurrent(current - 1);
-
   return (
     <Card className="shadow-none border-none">
-      <Steps current={current} className="mb-8" items={steps} />
-
       <Form 
         form={form} 
         layout="vertical" 
         onFinish={onFinish}
         initialValues={{ nationality: 'Việt Nam', type: 'QUAN_NHAN' }}
       >
-        <div style={{ display: current === 0 ? 'block' : 'none' }}>
+        <div className="mb-6">
+          <h3 className="flex items-center gap-2 font-bold mb-4 text-military-green border-b pb-2">
+            <User size={18} /> Thông tin Cá nhân
+          </h3>
           <Row gutter={16}>
             <Col span={12}>
               <Form.Item name="fullName" label="Họ và tên" rules={[{ required: true }]}>
@@ -159,12 +135,14 @@ export const PersonnelForm: React.FC<Props> = ({ initialData, onSuccess, onCance
             </Col>
           </Row>
           <Row gutter={16}>
-            <Col span={12}>
-              <Form.Item name="militaryCode" label="Mã số quân nhân">
-                <Input placeholder="QN-XXXX" />
-              </Form.Item>
-            </Col>
-            <Col span={12}>
+            {selectedType !== 'CONG_DAN_NVQS' && (
+              <Col span={12}>
+                <Form.Item name="militaryCode" label="Mã số quân nhân / SQDB">
+                  <Input placeholder="QN-XXXX" />
+                </Form.Item>
+              </Col>
+            )}
+            <Col span={selectedType !== 'CONG_DAN_NVQS' ? 12 : 24}>
               <Form.Item name="phone" label="Số điện thoại">
                 <Input />
               </Form.Item>
@@ -197,7 +175,10 @@ export const PersonnelForm: React.FC<Props> = ({ initialData, onSuccess, onCance
           </Row>
         </div>
 
-        <div style={{ display: current === 1 ? 'block' : 'none' }}>
+        <div className="mb-6">
+          <h3 className="flex items-center gap-2 font-bold mb-4 text-military-green border-b pb-2">
+            <MapPin size={18} /> Địa chỉ liên hệ
+          </h3>
           <Form.Item name={['address', 'hometown']} label="Quê quán">
             <Input />
           </Form.Item>
@@ -206,12 +187,12 @@ export const PersonnelForm: React.FC<Props> = ({ initialData, onSuccess, onCance
           </Form.Item>
           <Row gutter={16}>
              <Col span={8}><Form.Item name={['address', 'province']} label="Tỉnh/Thành"><Input /></Form.Item></Col>
-             <Col span={8}><Form.Item name={['address', 'district']} label="Quận/Huyện"><Input /></Form.Item></Col>
              <Col span={8}><Form.Item name={['address', 'ward']} label="Xã/Phường"><Input /></Form.Item></Col>
+             <Col span={8}><Form.Item name={['address', 'hamlet']} label="Khu phố/Thôn/Ấp"><Input /></Form.Item></Col>
           </Row>
         </div>
 
-        <div style={{ display: current === 2 ? 'block' : 'none' }}>
+        <div className="mb-6">
           <h3 className="flex items-center gap-2 font-bold mb-4 text-military-green border-b pb-2">
             <UsersIcon size={18} /> Thông tin Gia đình & Thân nhân
           </h3>
@@ -223,7 +204,7 @@ export const PersonnelForm: React.FC<Props> = ({ initialData, onSuccess, onCance
             <Col span={12}><Form.Item name={['family', 'motherName']} label="Họ tên Mẹ"><Input /></Form.Item></Col>
             <Col span={12}><Form.Item name={['family', 'motherYear']} label="Năm sinh Mẹ"><Input /></Form.Item></Col>
           </Row>
-          <Divider />
+          <Divider className="my-3" />
           <Row gutter={16}>
             <Col span={12}><Form.Item name={['family', 'spouseName']} label="Họ tên Vợ / Chồng"><Input /></Form.Item></Col>
             <Col span={12}><Form.Item name={['family', 'spouseYear']} label="Năm sinh Vợ / Chồng"><Input /></Form.Item></Col>
@@ -236,7 +217,10 @@ export const PersonnelForm: React.FC<Props> = ({ initialData, onSuccess, onCance
           </Form.Item>
         </div>
 
-        <div style={{ display: current === 3 ? 'block' : 'none' }}>
+        <div className="mb-6">
+          <h3 className="flex items-center gap-2 font-bold mb-4 text-military-green border-b pb-2">
+            <GraduationCap size={18} /> Trình độ Học vấn
+          </h3>
           <Row gutter={16}>
             <Col span={12}><Form.Item name={['education', 'culturalLevel']} label="Trình độ văn hóa"><Input /></Form.Item></Col>
             <Col span={12}><Form.Item name={['education', 'professionalLevel']} label="Trình độ chuyên môn"><Input /></Form.Item></Col>
@@ -251,33 +235,38 @@ export const PersonnelForm: React.FC<Props> = ({ initialData, onSuccess, onCance
           </Row>
         </div>
 
-        <div style={{ display: current === 4 ? 'block' : 'none' }}>
-          <h3 className="flex items-center gap-2 font-bold mb-4 text-military-green border-b pb-2">
-            <Shield size={18} /> Thông tin Quân sự & Công tác
-          </h3>
-          <Row gutter={16}>
-            <Col span={12}><Form.Item name={['militaryInfo', 'rank']} label="Cấp bậc quân hàm"><Input /></Form.Item></Col>
-            <Col span={12}><Form.Item name={['militaryInfo', 'position']} label="Chức danh / Chức vụ"><Input /></Form.Item></Col>
-          </Row>
-          <Row gutter={16}>
-            <Col span={12}><Form.Item name={['militaryInfo', 'unit']} label="Đơn vị công tác / Đăng ký"><Input /></Form.Item></Col>
-            <Col span={12}><Form.Item name={['militaryInfo', 'serviceStatus']} label="Tình trạng phục vụ"><Input /></Form.Item></Col>
-          </Row>
-          <Row gutter={16}>
-            <Col span={12}><Form.Item name={['militaryInfo', 'enlistmentDate']} label="Ngày nhập ngũ"><Input placeholder="dd/mm/yyyy" /></Form.Item></Col>
-            <Col span={12}><Form.Item name={['militaryInfo', 'militarySpecialization']} label="Chuyên ngành quân sự"><Input /></Form.Item></Col>
-          </Row>
-          <Row gutter={32}>
-            <Col span={8}><Form.Item name={['militaryInfo', 'salaryRank']} label="Bậc lương"><Input /></Form.Item></Col>
-            <Col span={8}><Form.Item name={['militaryInfo', 'salaryFactor']} label="Hệ số lương"><Input /></Form.Item></Col>
-            <Col span={8}><Form.Item name={['militaryInfo', 'allowance']} label="Phụ cấp"><Input /></Form.Item></Col>
-          </Row>
-          <Form.Item name={['militaryInfo', 'notes']} label="Ghi chú quá trình công tác">
-            <Input.TextArea rows={2} />
-          </Form.Item>
-        </div>
+        {selectedType !== 'CONG_DAN_NVQS' && (
+          <div className="mb-6">
+            <h3 className="flex items-center gap-2 font-bold mb-4 text-military-green border-b pb-2">
+              <Shield size={18} /> Thông tin Quân sự & Công tác
+            </h3>
+            <Row gutter={16}>
+              <Col span={12}><Form.Item name={['militaryInfo', 'rank']} label="Cấp bậc quân hàm"><Input /></Form.Item></Col>
+              <Col span={12}><Form.Item name={['militaryInfo', 'position']} label="Chức danh / Chức vụ"><Input /></Form.Item></Col>
+            </Row>
+            <Row gutter={16}>
+              <Col span={12}><Form.Item name={['militaryInfo', 'unit']} label="Đơn vị công tác / Đăng ký"><Input /></Form.Item></Col>
+              <Col span={12}><Form.Item name={['militaryInfo', 'serviceStatus']} label="Tình trạng phục vụ"><Input /></Form.Item></Col>
+            </Row>
+            <Row gutter={16}>
+              <Col span={12}><Form.Item name={['militaryInfo', 'enlistmentDate']} label="Ngày nhập ngũ"><Input placeholder="dd/mm/yyyy" /></Form.Item></Col>
+              <Col span={12}><Form.Item name={['militaryInfo', 'militarySpecialization']} label="Chuyên ngành quân sự"><Input /></Form.Item></Col>
+            </Row>
+            <Row gutter={32}>
+              <Col span={8}><Form.Item name={['militaryInfo', 'salaryRank']} label="Bậc lương"><Input /></Form.Item></Col>
+              <Col span={8}><Form.Item name={['militaryInfo', 'salaryFactor']} label="Hệ số lương"><Input /></Form.Item></Col>
+              <Col span={8}><Form.Item name={['militaryInfo', 'allowance']} label="Phụ cấp"><Input /></Form.Item></Col>
+            </Row>
+            <Form.Item name={['militaryInfo', 'notes']} label="Ghi chú quá trình công tác">
+              <Input.TextArea rows={2} />
+            </Form.Item>
+          </div>
+        )}
 
-        <div style={{ display: current === 5 ? 'block' : 'none' }}>
+        <div className="mb-6">
+          <h3 className="flex items-center gap-2 font-bold mb-4 text-military-green border-b pb-2">
+            <Activity size={18} /> Thông tin Sức khỏe
+          </h3>
           <Row gutter={16}>
             <Col span={12}><Form.Item name={['health', 'category']} label="Phân loại sức khỏe"><Input placeholder="Loại 1, 2, 3..." /></Form.Item></Col>
             <Col span={12}><Form.Item name={['health', 'bloodPressure']} label="Huyết áp"><Input /></Form.Item></Col>
@@ -289,31 +278,27 @@ export const PersonnelForm: React.FC<Props> = ({ initialData, onSuccess, onCance
           <Form.Item name={['health', 'chronicDiseases']} label="Bệnh nền / Tiền sử bệnh lý">
             <Input.TextArea rows={3} />
           </Form.Item>
+        </div>
+
+        <div className="mb-6">
+          <Form.Item name="notes" label="Ghi chú chung">
+            <Input.TextArea rows={3} placeholder="Ghi chú về hoàn cảnh, kỹ năng đặc biệt, hoặc thông tin khác..." />
+          </Form.Item>
+
           <div className="bg-blue-50 p-4 rounded-lg mb-4 text-sm text-blue-700 flex items-start gap-2">
             <CheckCircle2 size={16} className="mt-0.5" />
-            <span>Vui lòng kiểm tra kỹ tất cả thông tin trước khi nhấn Hoàn tất. Hồ sơ sẽ được lưu và bảo mật theo quy định của Bộ Quốc phòng.</span>
+            <span>Vui lòng kiểm tra kỹ tất cả thông tin trước khi nhấn Hoàn tất. Hồ sơ sẽ được lưu và bảo mật theo quy định.</span>
           </div>
         </div>
 
         <div className="flex justify-between mt-8 pt-4 border-t border-gray-100">
           <Button onClick={onCancel}>Hủy bỏ</Button>
-          <div className="flex gap-2">
-            {current > 0 && (
-              <Button icon={<ChevronLeft size={16} />} onClick={prev}>Quay lại</Button>
-            )}
-            {current < steps.length - 1 && (
-              <Button type="primary" className="bg-military-green" onClick={next}>
-                Tiếp theo <ChevronRight size={16} />
-              </Button>
-            )}
-            {current === steps.length - 1 && (
-              <Button type="primary" className="bg-military-green" loading={loading} htmlType="submit">
-                Hoàn tất & Lưu hồ sơ
-              </Button>
-            )}
-          </div>
+          <Button type="primary" className="bg-military-green" loading={loading} htmlType="submit">
+            Hoàn tất & Lưu hồ sơ
+          </Button>
         </div>
       </Form>
     </Card>
   );
 };
+

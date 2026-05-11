@@ -13,8 +13,7 @@ import {
   Cell,
   Legend
 } from 'recharts';
-import { collection, query, onSnapshot } from 'firebase/firestore';
-import { db } from '../lib/firebase';
+import { collection, query, onSnapshot, db } from '../lib/localDb';
 import { PersonnelProfile } from '../types/military';
 import { FileDown, Filter, Printer } from 'lucide-react';
 
@@ -101,8 +100,8 @@ export const ReportsView: React.FC = () => {
     if (healthFilter) result = result.filter(p => p.health?.category === healthFilter);
     if (eduFilter) result = result.filter(p => p.education?.professionalLevel === eduFilter);
     if (genderFilter) result = result.filter(p => p.gender === genderFilter);
-    if (districtFilter) result = result.filter(p => p.address?.district === districtFilter);
-    if (communeFilter) result = result.filter(p => p.address?.commune === communeFilter);
+    if (districtFilter) result = result.filter(p => p.address?.ward === districtFilter);
+    if (communeFilter) result = result.filter(p => p.address?.hamlet === communeFilter);
     if (majorFilter) result = result.filter(p => p.education?.trainingMajor === majorFilter);
     if (occupationFilter) result = result.filter(p => p.occupation === occupationFilter);
     if (milSpecFilter) result = result.filter(p => p.militaryInfo?.militarySpecialization === milSpecFilter);
@@ -134,8 +133,8 @@ export const ReportsView: React.FC = () => {
   // Options for filters
   const units = Array.from(new Set(data.map(p => p.militaryInfo?.unit).filter(Boolean)));
   const provinces = Array.from(new Set(data.map(p => p.address?.province).filter(Boolean)));
-  const districts = Array.from(new Set(data.map(p => p.address?.district).filter(Boolean)));
-  const communes = Array.from(new Set(data.map(p => p.address?.commune).filter(Boolean)));
+  const districts = Array.from(new Set(data.map(p => p.address?.ward).filter(Boolean)));
+  const communes = Array.from(new Set(data.map(p => p.address?.hamlet).filter(Boolean)));
   const majors = Array.from(new Set(data.map(p => p.education?.trainingMajor).filter(Boolean)));
   const occupations = Array.from(new Set(data.map(p => p.occupation).filter(Boolean)));
   const milSpecs = Array.from(new Set(data.map(p => p.militaryInfo?.militarySpecialization).filter(Boolean)));
@@ -275,20 +274,20 @@ export const ReportsView: React.FC = () => {
             />
           </Col>
           <Col xs={24} sm={12} md={6}>
-            <div className="text-xs text-gray-500 mb-1">Huyện / Quận</div>
+            <div className="text-xs text-gray-500 mb-1">Xã / Phường</div>
             <Select 
               className="w-full" 
-              placeholder="Tất cả huyện/quận" 
+              placeholder="Tất cả xã/phường" 
               allowClear
               onChange={setDistrictFilter}
               options={districts.map(d => ({ value: d, label: d }))} 
             />
           </Col>
           <Col xs={24} sm={12} md={6}>
-            <div className="text-xs text-gray-500 mb-1">Xã / Phường</div>
+            <div className="text-xs text-gray-500 mb-1">Khu phố / Thôn</div>
             <Select 
               className="w-full" 
-              placeholder="Tất cả xã/phường" 
+              placeholder="Tất cả khu phố/thôn" 
               allowClear
               onChange={setCommuneFilter}
               options={communes.map(c => ({ value: c, label: c }))} 

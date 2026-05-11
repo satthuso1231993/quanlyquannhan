@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Table, Button, Input, Select, Tag, Space, Card, Dropdown, App as AntdApp, Modal } from 'antd';
+import { Table, Button, Input, Select, Tag, Space, Card, Dropdown, App as AntdApp, Modal, InputNumber } from 'antd';
 import { 
   Plus, 
   Search, 
@@ -12,13 +12,12 @@ import {
   UserPlus,
   QrCode
 } from 'lucide-react';
-import { collection, query, onSnapshot, doc, deleteDoc } from 'firebase/firestore';
+import { collection, query, onSnapshot, doc, deleteDoc, db, handleFirestoreError, OperationType } from '../lib/localDb';
 import { PersonnelService } from '../services/PersonnelService';
-import { db, handleFirestoreError, OperationType } from '../lib/firebase';
 import { PersonnelProfile, PersonnelType } from '../types/military';
 import { PersonnelForm } from './PersonnelForm';
 import { QRCodeSVG } from 'qrcode.react';
-import { format } from 'date-fns';
+import { format, differenceInYears } from 'date-fns';
 import { useAuth } from '../context/AuthContext';
 
 import { exportPersonnelToExcel } from '../lib/exportUtils';
@@ -27,6 +26,8 @@ export const PersonnelList: React.FC<{ type?: PersonnelType }> = ({ type }) => {
   const [data, setData] = useState<PersonnelProfile[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchText, setSearchText] = useState('');
+  const [minAge, setMinAge] = useState<number | null>(null);
+  const [maxAge, setMaxAge] = useState<number | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedQR, setSelectedQR] = useState<string | null>(null);
   const [editingProfile, setEditingProfile] = useState<PersonnelProfile | null>(null);
@@ -35,6 +36,28 @@ export const PersonnelList: React.FC<{ type?: PersonnelType }> = ({ type }) => {
   
   const canEdit = appUser?.role !== 'VIEWER';
   const isAdmin = appUser?.role === 'ADMIN' || appUser?.role === 'COMMANDER';
+
+  const [showAdvancedFilter, setShowAdvancedFilter] = useState(false);
+  const [unitFilter, setUnitFilter] = useState<string | null>(null);
+  const [eduFilter, setEduFilter] = useState<string | null>(null);
+  const [provinceFilter, setProvinceFilter] = useState<string | null>(null);
+  const [districtFilter, setDistrictFilter] = useState<string | null>(null);
+  const [wardFilter, setWardFilter] = useState<string | null>(null);
+  const [occupationFilter, setOccupationFilter] = useState<string | null>(null);
+  const [religionFilter, setReligionFilter] = useState<string | null>(null);
+  const [ethnicityFilter, setEthnicityFilter] = useState<string | null>(null);
+  const [healthFilter, setHealthFilter] = useState<string | null>(null);
+  const [genderFilter, setGenderFilter] = useState<string | null>(null);
+
+  const units = Array.from(new Set(data.map(p => p.militaryInfo?.unit).filter(Boolean)));
+  const edus = Array.from(new Set(data.map(p => p.education?.professionalLevel).filter(Boolean)));
+  const provinces = Array.from(new Set(data.map(p => p.address?.province).filter(Boolean)));
+  const districts = Array.from(new Set(data.map(p => p.address?.district).filter(Boolean)));
+  const wards = Array.from(new Set(data.map(p => p.address?.ward).filter(Boolean)));
+  const occupations = Array.from(new Set(data.map(p => p.occupation).filter(Boolean)));
+  const religions = Array.from(new Set(data.map(p => p.religion).filter(Boolean)));
+  const ethnicities = Array.from(new Set(data.map(p => p.ethnicity).filter(Boolean)));
+  const healthCategories = Array.from(new Set(data.map(p => p.health?.category).filter(Boolean)));
 
   const handleExportExcel = () => {
     if (data.length === 0) {
@@ -50,15 +73,6 @@ export const PersonnelList: React.FC<{ type?: PersonnelType }> = ({ type }) => {
       return;
     }
     setEditingProfile(record);
-    setIsModalOpen(true);
-  };
-
-  const handleAddNew = () => {
-    if (!canEdit) {
-      message.error('Bạn không có quyền thêm hồ sơ');
-      return;
-    }
-    setEditingProfile(null);
     setIsModalOpen(true);
   };
 
@@ -120,7 +134,12 @@ export const PersonnelList: React.FC<{ type?: PersonnelType }> = ({ type }) => {
       title: 'Ngày sinh',
       dataIndex: 'birthDate',
       key: 'birthDate',
-      render: (date: string) => <span className="text-sm">{date ? format(new Date(date), 'dd/MM/yyyy') : '-'}</span>,
+      render: (date: string) => (
+        <div>
+          <span className="text-sm block">{date ? format(new Date(date), 'dd/MM/yyyy') : '-'}</span>
+          {date && <span className="text-[10px] text-gray-500">{differenceInYears(new Date(), new Date(date))} tuổi</span>}
+        </div>
+      ),
     },
     {
       title: 'Đơn vị / Địa phương',
@@ -178,11 +197,36 @@ export const PersonnelList: React.FC<{ type?: PersonnelType }> = ({ type }) => {
     },
   ];
 
-  const filteredData = data.filter(p => 
-    p.fullName.toLowerCase().includes(searchText.toLowerCase()) ||
-    p.militaryCode?.toLowerCase().includes(searchText.toLowerCase()) ||
-    p.idNumber.includes(searchText)
-  );
+  const filteredData = data.filter(p => {
+    const matchesSearch = p.fullName.toLowerCase().includes(searchText.toLowerCase()) ||
+                          p.militaryCode?.toLowerCase().includes(searchText.toLowerCase()) ||
+                          p.idNumber.includes(searchText);
+
+    let age = 0;
+    if (p.birthDate) {
+      age = differenceInYears(new Date(), new Date(p.birthDate));
+    }
+    
+    // If birthDate is missing but age filters are applied, exclude the record.
+    const hasAge = !!p.birthDate;
+    const matchesMinAge = minAge ? (hasAge && age >= minAge) : true;
+    const matchesMaxAge = maxAge ? (hasAge && age <= maxAge) : true;
+    
+    const matchesUnit = unitFilter ? p.militaryInfo?.unit === unitFilter : true;
+    const matchesEdu = eduFilter ? p.education?.professionalLevel === eduFilter : true;
+    const matchesProvince = provinceFilter ? p.address?.province === provinceFilter : true;
+    const matchesDistrict = districtFilter ? p.address?.district === districtFilter : true;
+    const matchesWard = wardFilter ? p.address?.ward === wardFilter : true;
+    const matchesOccupation = occupationFilter ? p.occupation === occupationFilter : true;
+    const matchesReligion = religionFilter ? p.religion === religionFilter : true;
+    const matchesEthnicity = ethnicityFilter ? p.ethnicity === ethnicityFilter : true;
+    const matchesHealth = healthFilter ? p.health?.category === healthFilter : true;
+    const matchesGender = genderFilter ? p.gender === genderFilter : true;
+
+    return matchesSearch && matchesMinAge && matchesMaxAge && matchesUnit && matchesEdu && 
+           matchesProvince && matchesDistrict && matchesWard && matchesOccupation && 
+           matchesReligion && matchesEthnicity && matchesHealth && matchesGender;
+  });
 
   return (
     <div className="space-y-4">
@@ -193,27 +237,17 @@ export const PersonnelList: React.FC<{ type?: PersonnelType }> = ({ type }) => {
         </div>
         <div className="flex gap-2 w-full md:w-auto">
           <Button icon={<FileDown size={18} />} onClick={handleExportExcel}>Xuất Excel</Button>
-          {canEdit && (
-            <Button 
-              type="primary" 
-              className="bg-military-green flex items-center gap-2" 
-              icon={<Plus size={18} />}
-              onClick={handleAddNew}
-            >
-              Thêm hồ sơ mới
-            </Button>
-          )}
         </div>
       </div>
 
       <Modal
-        title={editingProfile ? `Chỉnh sửa hồ sơ: ${editingProfile.fullName}` : "Thêm hồ sơ nhân sự mới"}
+        title={editingProfile ? `Chỉnh sửa hồ sơ: ${editingProfile.fullName}` : "Chi tiết hồ sơ"}
         open={isModalOpen}
         onCancel={() => setIsModalOpen(false)}
         footer={null}
         width={800}
         centered
-        destroyOnClose
+        destroyOnHidden
       >
         <PersonnelForm 
           initialData={editingProfile}
@@ -245,24 +279,128 @@ export const PersonnelList: React.FC<{ type?: PersonnelType }> = ({ type }) => {
             value={searchText}
             onChange={e => setSearchText(e.target.value)}
           />
-          <Select 
-            placeholder="Đơn vị" 
-            style={{ width: 180 }}
-            options={[
-              { value: 'dv1', label: 'Đơn vị 1' },
-              { value: 'dv2', label: 'Đơn vị 2' },
-            ]}
-          />
-          <Select 
-            placeholder="Trình độ" 
-            style={{ width: 140 }}
-            options={[
-              { value: 'dh', label: 'Đại học' },
-              { value: 'cd', label: 'Cao đẳng' },
-            ]}
-          />
-          <Button icon={<Filter size={18} />}>Lọc nâng cao</Button>
+          <Button 
+            icon={<Filter size={18} />} 
+            type={showAdvancedFilter ? 'primary' : 'default'}
+            onClick={() => setShowAdvancedFilter(!showAdvancedFilter)}
+          >
+            Lọc nâng cao
+          </Button>
         </div>
+
+        {showAdvancedFilter && (
+          <div className="flex flex-wrap gap-4 mb-6 p-4 bg-gray-50 rounded-lg border border-gray-100">
+            <Space>
+              <span className="text-sm text-gray-500">Độ tuổi:</span>
+              <InputNumber min={0} max={150} value={minAge} onChange={(val) => setMinAge(val)} placeholder="Từ" />
+              <span>-</span>
+              <InputNumber min={0} max={150} value={maxAge} onChange={(val) => setMaxAge(val)} placeholder="Đến" />
+            </Space>
+            
+            <Select 
+              placeholder="Đơn vị" 
+              style={{ width: 180 }}
+              allowClear
+              value={unitFilter}
+              onChange={setUnitFilter}
+              options={units.map(u => ({ value: u, label: u }))}
+            />
+            
+            <Select 
+              placeholder="Trình độ" 
+              style={{ width: 160 }}
+              allowClear
+              value={eduFilter}
+              onChange={setEduFilter}
+              options={edus.map(e => ({ value: e, label: e }))}
+            />
+            
+            <Select 
+              placeholder="Tỉnh / Thành phố" 
+              style={{ width: 160 }}
+              allowClear
+              value={provinceFilter}
+              onChange={setProvinceFilter}
+              options={provinces.map(p => ({ value: p, label: p }))}
+            />
+            
+            <Select 
+              placeholder="Quận / Huyện" 
+              style={{ width: 160 }}
+              allowClear
+              value={districtFilter}
+              onChange={setDistrictFilter}
+              options={districts.map(p => ({ value: p, label: p }))}
+            />
+
+            <Select 
+              placeholder="Xã / Phường" 
+              style={{ width: 160 }}
+              allowClear
+              value={wardFilter}
+              onChange={setWardFilter}
+              options={wards.map(p => ({ value: p, label: p }))}
+            />
+
+            <Select 
+              placeholder="Nghề nghiệp" 
+              style={{ width: 160 }}
+              allowClear
+              value={occupationFilter}
+              onChange={setOccupationFilter}
+              options={occupations.map(p => ({ value: p, label: p }))}
+            />
+
+            <Select 
+              placeholder="Tôn giáo" 
+              style={{ width: 120 }}
+              allowClear
+              value={religionFilter}
+              onChange={setReligionFilter}
+              options={religions.map(p => ({ value: p, label: p }))}
+            />
+
+            <Select 
+              placeholder="Dân tộc" 
+              style={{ width: 120 }}
+              allowClear
+              value={ethnicityFilter}
+              onChange={setEthnicityFilter}
+              options={ethnicities.map(p => ({ value: p, label: p }))}
+            />
+
+            <Select 
+              placeholder="Sức khỏe" 
+              style={{ width: 120 }}
+              allowClear
+              value={healthFilter}
+              onChange={setHealthFilter}
+              options={healthCategories.map(p => ({ value: p, label: p }))}
+            />
+
+            <Select 
+              placeholder="Giới tính" 
+              style={{ width: 120 }}
+              allowClear
+              value={genderFilter}
+              onChange={setGenderFilter}
+              options={[
+                { value: 'Nam', label: 'Nam' },
+                { value: 'Nữ', label: 'Nữ' },
+              ]}
+            />
+            
+            <Button 
+              type="link" 
+              onClick={() => {
+                setMinAge(null); setMaxAge(null); setUnitFilter(null); setEduFilter(null); setProvinceFilter(null); setSearchText('');
+                setDistrictFilter(null); setWardFilter(null); setOccupationFilter(null); setReligionFilter(null); setEthnicityFilter(null); setHealthFilter(null); setGenderFilter(null);
+              }}
+            >
+              Xóa bộ lọc
+            </Button>
+          </div>
+        )}
 
         <Table 
           columns={columns} 

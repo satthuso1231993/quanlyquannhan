@@ -3,6 +3,7 @@ import { AuthProvider, useAuth } from './context/AuthContext';
 import { AppLayout } from './components/AppLayout';
 import { Dashboard } from './components/Dashboard';
 import { PersonnelList } from './components/PersonnelList';
+import { PersonnelEntryView } from './components/PersonnelEntryView';
 import { ReportsView } from './components/ReportsView';
 import { SettingsView } from './components/SettingsView';
 import { AuditLogsView } from './components/AuditLogsView';
@@ -184,6 +185,7 @@ const AppContent = () => {
   const renderView = () => {
     switch (currentView) {
       case 'dashboard': return <Dashboard />;
+      case 'entry': return <PersonnelEntryView />;
       case 'personnel': return <PersonnelList type="QUAN_NHAN" />;
       case 'reserve': return <PersonnelList type="SI_QUAN_DU_BI" />;
       case 'conscripts': return <PersonnelList type="CONG_DAN_NVQS" />;
@@ -197,7 +199,7 @@ const AppContent = () => {
   return (
     <AppLayout activeKey={currentView} onMenuSelect={setCurrentView}>
       <div className="flex flex-wrap gap-2 mb-6 md:hidden">
-        {['dashboard', 'personnel', 'reserve', 'conscripts', 'reports'].map(v => (
+        {['dashboard', 'entry', 'personnel', 'reserve', 'conscripts', 'reports'].map(v => (
           <Button 
             key={v}
             type={currentView === v ? 'primary' : 'default'}
@@ -205,7 +207,7 @@ const AppContent = () => {
             onClick={() => setCurrentView(v)}
             size="small"
           >
-            {v === 'dashboard' ? 'Tổng quan' : v === 'personnel' ? 'Quân nhân' : v === 'reserve' ? 'Sĩ quan' : v === 'conscripts' ? 'Công dân' : 'Báo cáo'}
+            {v === 'dashboard' ? 'Tổng quan' : v === 'entry' ? 'Nhập thông tin' : v === 'personnel' ? 'Quân nhân' : v === 'reserve' ? 'Sĩ quan' : v === 'conscripts' ? 'Công dân' : 'Báo cáo'}
           </Button>
         ))}
       </div>

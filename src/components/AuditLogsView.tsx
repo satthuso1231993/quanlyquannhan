@@ -1,8 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Card, Table, Tag, Input, Space } from 'antd';
 import { ClipboardList, Search, Clock } from 'lucide-react';
-import { collection, query, orderBy, limit, onSnapshot } from 'firebase/firestore';
-import { db } from '../lib/firebase';
+import { collection, query, orderBy, limit, onSnapshot, db } from '../lib/localDb';
 import { format } from 'date-fns';
 import { useAuth } from '../context/AuthContext';
 
