@@ -1,0 +1,130 @@
+{
+  "entities": {
+    "profile": {
+      "title": "Hồ sơ Cá nhân",
+      "description": "Thông tin chi tiết về quân nhân, sĩ quan dự bị hoặc công dân",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "description": "Mã định danh hồ sơ" },
+        "fullName": { "type": "string" },
+        "alias": { "type": "string" },
+        "birthDate": { "type": "string", "format": "date" },
+        "gender": { "type": "string", "enum": ["Nam", "Nữ"] },
+        "idNumber": { "type": "string", "description": "Số CCCD/CMND" },
+        "idIssueDate": { "type": "string" },
+        "idIssuePlace": { "type": "string" },
+        "ethnicity": { "type": "string" },
+        "religion": { "type": "string" },
+        "nationality": { "type": "string" },
+        "bloodType": { "type": "string" },
+        "height": { "type": "number" },
+        "weight": { "type": "number" },
+        "maritalStatus": { "type": "string" },
+        "phone": { "type": "string" },
+        "email": { "type": "string" },
+        "militaryCode": { "type": "string", "description": "Mã số quân nhân" },
+        "type": { "type": "string", "enum": ["QUAN_NHAN", "SI_QUAN_DU_BI", "CONG_DAN_NVQS"] },
+        "address": {
+          "type": "object",
+          "properties": {
+            "hometown": { "type": "string" },
+            "birthPlace": { "type": "string" },
+            "permanentResidence": { "type": "string" },
+            "currentResidence": { "type": "string" },
+            "ward": { "type": "string" },
+            "district": { "type": "string" },
+            "province": { "type": "string" }
+          }
+        },
+        "militaryInfo": {
+          "type": "object",
+          "properties": {
+            "enlistmentDate": { "type": "string" },
+            "dischargeDate": { "type": "string" },
+            "unit": { "type": "string" },
+            "position": { "type": "string" },
+            "rank": { "type": "string" },
+            "salaryGrade": { "type": "string" },
+            "salaryFactor": { "type": "number" },
+            "allowance": { "type": "number" },
+            "militarySpecialization": { "type": "string" },
+            "serviceStatus": { "type": "string" },
+            "mobilizationStatus": { "type": "string" },
+            "trainingStatus": { "type": "string" },
+            "socialInsuranceNumber": { "type": "string" },
+            "industryCardNumber": { "type": "string" }
+          }
+        },
+        "health": {
+          "type": "object",
+          "properties": {
+            "category": { "type": "string" },
+            "history": { "type": "string" },
+            "chronicDiseases": { "type": "string" },
+            "deformities": { "type": "string" },
+            "vision": { "type": "string" },
+            "bloodPressure": { "type": "string" },
+            "lastCheckupDate": { "type": "string" }
+          }
+        },
+        "education": {
+          "type": "object",
+          "properties": {
+            "culturalLevel": { "type": "string" },
+            "professionalLevel": { "type": "string" },
+            "politicalLevel": { "type": "string" },
+            "foreignLanguage": { "type": "string" },
+            "itLevel": { "type": "string" },
+            "trainingMajor": { "type": "string" },
+            "institution": { "type": "string" },
+            "graduationYear": { "type": "number" }
+          }
+        },
+        "family": {
+          "type": "array",
+          "items": { "type": "object" }
+        },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" },
+        "createdBy": { "type": "string" }
+      },
+      "required": ["fullName", "idNumber", "type"]
+    },
+    "user": {
+      "title": "Người dùng hệ thống",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string" },
+        "email": { "type": "string" },
+        "displayName": { "type": "string" },
+        "role": { "type": "string", "enum": ["ADMIN", "COMMANDER", "MANAGER", "CLERK", "VIEWER"] },
+        "unit": { "type": "string" }
+      }
+    },
+    "auditLog": {
+      "title": "Nhật ký hoạt động",
+      "type": "object",
+      "properties": {
+        "timestamp": { "type": "string" },
+        "userId": { "type": "string" },
+        "action": { "type": "string" },
+        "resourceId": { "type": "string" },
+        "details": { "type": "string" }
+      }
+    }
+  },
+  "firestore": {
+    "profiles": {
+      "schema": "profile",
+      "description": "Danh sách hồ sơ nhân sự quân sự"
+    },
+    "users": {
+      "schema": "user",
+      "description": "Danh sách người dùng và phân quyền"
+    },
+    "auditLogs": {
+      "schema": "auditLog",
+      "description": "Lịch sử thao tác trên hệ thống"
+    }
+  }
+}
