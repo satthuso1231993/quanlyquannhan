@@ -1,6 +1,4 @@
-// Mock Firebase behavior with LocalStorage for GitHub Pages offline-only use
-
-// LocalStorage Backend Mock
+// LocalStorage Backend Mock for Pure Client-side Use (no backend needed)
 
 export const db = {};
 
@@ -39,9 +37,18 @@ export const signOut = async (authInstance: any) => {
   triggerAuthChange();
 };
 
+const getCollection = (path: string): any[] => {
+  const stored = localStorage.getItem(`db_${path}`);
+  if (stored) return JSON.parse(stored);
+  return [];
+};
+
+const saveCollection = (path: string, data: any[]) => {
+  localStorage.setItem(`db_${path}`, JSON.stringify(data));
+};
+
 export const signInWithEmailAndPassword = async (authInstance: any, email: string, pass: string) => {
-  const res = await fetch('/api/db/auth_users');
-  const users = await res.json();
+  const users = getCollection('auth_users');
   const user = users.find((u: any) => u.email === email && u.password === pass);
   if (!user) {
     throw new Error('Đăng nhập thất bại. Sai tài khoản hoặc mật khẩu.');
@@ -52,8 +59,7 @@ export const signInWithEmailAndPassword = async (authInstance: any, email: strin
 };
 
 export const createUserWithEmailAndPassword = async (authInstance: any, email: string, pass: string) => {
-  const res = await fetch('/api/db/auth_users');
-  const users = await res.json();
+  const users = getCollection('auth_users');
 
   if (users.find((u: any) => u.email === email)) {
     const error: any = new Error('auth/email-already-in-use');
@@ -61,19 +67,11 @@ export const createUserWithEmailAndPassword = async (authInstance: any, email: s
     throw error;
   }
   
-  const user = {
-    email,
-    password: pass
-  };
+  const id = Math.random().toString(36).substr(2, 9);
+  const userAuth = { id, uid: id, email, password: pass };
   
-  const addRes = await fetch('/api/db/auth_users', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(user)
-  });
-  const added = await addRes.json();
-  
-  const userAuth = { ...user, uid: added.id };
+  users.push(userAuth);
+  saveCollection('auth_users', users);
   
   currentUser = userAuth;
   localStorage.setItem('vms_current_user', JSON.stringify(currentUser));
@@ -84,11 +82,12 @@ export const createUserWithEmailAndPassword = async (authInstance: any, email: s
 
 export const updatePassword = async (userInstance: any, newPass: string) => {
   if (currentUser) {
-    await fetch(`/api/db/auth_users/${currentUser.uid}`, {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ password: newPass })
-    });
+    const users = getCollection('auth_users');
+    const index = users.findIndex(u => u.uid === currentUser.uid);
+    if (index > -1) {
+      users[index].password = newPass;
+      saveCollection('auth_users', users);
+    }
   }
 };
 
@@ -126,8 +125,7 @@ export function limit(n: number) {
 }
 
 export async function getDocs(queryObj: any) {
-  const res = await fetch(`/api/db/${queryObj.path}`);
-  const data = await res.json();
+  const data = getCollection(queryObj.path);
   return {
     docs: data.map((d: any) => ({
       id: d.id,
@@ -137,56 +135,59 @@ export async function getDocs(queryObj: any) {
 }
 
 export async function getDoc(docRef: any) {
-  const res = await fetch(`/api/db/${docRef.path}/${docRef.id}`);
-  const data = await res.json();
+  const data = getCollection(docRef.path);
+  const item = data.find((d: any) => d.id === docRef.id);
   return {
-    exists: () => !!data && Object.keys(data).length > 0,
+    exists: () => !!item,
     id: docRef.id,
-    data: () => data
+    data: () => item
   };
 }
 
 export async function setDoc(docRef: any, data: any) {
-  await fetch(`/api/db/${docRef.path}/${docRef.id}`, {
-    method: 'PUT',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(data)
-  });
+  const allData = getCollection(docRef.path);
+  const index = allData.findIndex((d: any) => d.id === docRef.id);
+  const toSave = { ...data, id: docRef.id };
+  if (index > -1) {
+    allData[index] = toSave;
+  } else {
+    allData.push(toSave);
+  }
+  saveCollection(docRef.path, allData);
   emitChange(docRef.path);
 }
 
 export async function addDoc(col: any, data: any) {
-  const res = await fetch(`/api/db/${col.path}`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(data)
-  });
-  const json = await res.json();
+  const allData = getCollection(col.path);
+  const id = Math.random().toString(36).substr(2, 9);
+  const toSave = { ...data, id };
+  allData.push(toSave);
+  saveCollection(col.path, allData);
   emitChange(col.path);
-  return { id: json.id };
+  return { id };
 }
 
 export async function updateDoc(docRef: any, data: any) {
-  await fetch(`/api/db/${docRef.path}/${docRef.id}`, {
-    method: 'PATCH',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(data)
-  });
-  emitChange(docRef.path);
+  const allData = getCollection(docRef.path);
+  const index = allData.findIndex((d: any) => d.id === docRef.id);
+  if (index > -1) {
+    allData[index] = { ...allData[index], ...data, id: docRef.id };
+    saveCollection(docRef.path, allData);
+    emitChange(docRef.path);
+  }
 }
 
 export async function deleteDoc(docRef: any) {
-  await fetch(`/api/db/${docRef.path}/${docRef.id}`, {
-    method: 'DELETE'
-  });
+  let allData = getCollection(docRef.path);
+  allData = allData.filter((d: any) => d.id !== docRef.id);
+  saveCollection(docRef.path, allData);
   emitChange(docRef.path);
 }
 
 export function onSnapshot(queryObj: any, callback: (snapshot: any) => void, onError?: (err: any) => void): Unsubscribe {
   const fetchAndTrigger = async () => {
     try {
-      const res = await fetch(`/api/db/${queryObj.path}`);
-      let allData = await res.json();
+      let allData = getCollection(queryObj.path);
       
       // Apply basic orderBy constraint if it exists (very naive implementation)
       if (queryObj.constraints) {
